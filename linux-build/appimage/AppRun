@@ -10,6 +10,26 @@ export TCL_LIBRARY="${APPDIR}/usr/share/tcltk/tcl8.5"
 export TK_LIBRARY="${APPDIR}/usr/share/tcltk/tk8.5"
 export TKPATH="${TK_LIBRARY}"
 
-#cd $APPDIR #removed to preserve relative paths when passing cli args
-#opt/python3.11/bin/fbs run "$@"
-exec "$APPDIR/bin/ayab" "$@"
+# Workaround for CLI args: since we have to change working dir, adjust relative paths in args
+caller_dir="$(pwd -P)"
+args=()
+
+for arg in "$@"; do
+    case "$arg" in
+        -*|/*) args+=("$arg") ;;
+        *)
+            if [[ -e "$caller_dir/$arg" ]]; then
+                args+=("$caller_dir/$arg")
+            else
+                args+=("$arg")
+            fi
+            ;;
+    esac
+done
+# now that that's done, we can safely cd and execute...
+
+cd "$APPDIR" || exit 1
+export PYTHONPATH="$APPDIR/src/main/python${PYTHONPATH:+:$PYTHONPATH}"
+
+exec "$APPDIR/opt/python3.11/bin/python3.11" \
+    "$APPDIR/src/main/python/main/main.py" "${args[@]}"
